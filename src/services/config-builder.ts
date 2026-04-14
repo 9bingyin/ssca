@@ -3,6 +3,7 @@ import { AppError } from "../errors";
 import { logWarn } from "../logger";
 import { parseProfileIni } from "../parsers/profile-parser";
 import { ResourceLoader } from "../loaders/resource-loader";
+import { serializeBase64Subscription } from "../serializers/base64-subscription";
 import { validateMihomoConfig } from "../validators";
 import type {
   AppConfig,
@@ -53,6 +54,11 @@ export class ConfigBuilder {
     return YAML.stringify(output, {
       lineWidth: 0,
     });
+  }
+
+  async buildBase64Subscription(): Promise<string> {
+    const proxies = await this.loadProxies();
+    return serializeBase64Subscription(proxies);
   }
 
   private async loadProxies(): Promise<Record<string, unknown>[]> {

@@ -150,4 +150,62 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
     expect(serialized).not.toContain('"name":"socks"');
     expect(serialized).not.toContain('"name":"relay"');
   });
+
+  test("builds base64 subscription from proxies file", async () => {
+    await fs.mkdir(tempRoot, { recursive: true });
+
+    const proxiesFile = path.join(tempRoot, "proxies.yaml");
+    const profileFile = path.join(tempRoot, "profile.ini");
+    const templateFile = path.join(tempRoot, "template.yaml");
+
+    await fs.writeFile(
+      proxiesFile,
+      `proxies:
+  - name: "HK SS"
+    type: ss
+    server: 1.1.1.1
+    port: 2300
+    cipher: chacha20-ietf-poly1305
+    password: pass
+  - name: "Reality VLESS"
+    type: vless
+    server: vless.example.com
+    port: 443
+    uuid: 1386f85e-657b-4d6e-9d56-78badb75e1fd
+    network: grpc
+    tls: true
+    servername: cdn.example.com
+    client-fingerprint: chrome
+    grpc-opts:
+      grpc-service-name: grpc
+    reality-opts:
+      public-key: pubkey
+      short-id: abcd1234
+`,
+    );
+    await fs.writeFile(profileFile, "[custom]\nruleset=默认规则,[]FINAL\n");
+    await fs.writeFile(
+      templateFile,
+      "proxies: []\nproxy-groups: []\nrules: []\n",
+    );
+
+    const config: AppConfig = {
+      listenHost: "127.0.0.1",
+      listenPort: 3000,
+      proxiesFile,
+      profileIni: profileFile,
+      templateFile,
+      cacheTtlSeconds: 300,
+    };
+
+    const output = await new ConfigBuilder(
+      config,
+      new ResourceLoader(300),
+    ).buildBase64Subscription();
+
+    const decoded = Buffer.from(output, "base64").toString("utf8");
+    expect(decoded).toContain("ss://");
+    expect(decoded).toContain("vless://");
+    expect(decoded).toContain("security=reality");
+  });
 });

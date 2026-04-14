@@ -49,3 +49,5 @@ export interface CompiledConfig {
   proxyGroups: Record<string, unknown>[];
   rules: string[];
 }
+
+export type OutputTarget = "mihomo" | "base64";

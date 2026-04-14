@@ -13,6 +13,8 @@ const MIHOMO_UA_KEYWORDS = [
   "metacubex",
 ];
 
+const BASE64_UA_KEYWORDS = ["v2rayn"];
+
 export function createServer(
   appConfig: AppConfig,
   builder: ConfigBuilder,
@@ -37,11 +39,10 @@ export function createServer(
           url.searchParams.get("target") ?? "auto",
           request.headers.get("user-agent"),
         );
-        if (target !== "mihomo") {
-          throw new AppError(`Unsupported target: ${target}`, 400);
-        }
-
-        const body = await builder.build();
+        const body =
+          target === "base64"
+            ? await builder.buildBase64Subscription()
+            : await builder.build();
         logInfo("Request served", {
           path: url.pathname,
           target,
@@ -51,7 +52,10 @@ export function createServer(
         return new Response(body, {
           status: 200,
           headers: {
-            "content-type": "text/yaml; charset=utf-8",
+            "content-type":
+              target === "base64"
+                ? "text/plain; charset=utf-8"
+                : "text/yaml; charset=utf-8",
             "cache-control": "no-store",
           },
         });
@@ -72,9 +76,9 @@ export function createServer(
 export function resolveTarget(
   target: string,
   userAgent: string | null,
-): "mihomo" {
-  if (target === "mihomo") {
-    return "mihomo";
+): "mihomo" | "base64" {
+  if (target === "mihomo" || target === "base64") {
+    return target;
   }
   if (target !== "auto") {
     throw new AppError(`Invalid target: ${target}`, 400);
@@ -83,6 +87,12 @@ export function resolveTarget(
   const normalized = userAgent?.toLowerCase() ?? "";
   if (!normalized) {
     return "mihomo";
+  }
+
+  for (const keyword of BASE64_UA_KEYWORDS) {
+    if (normalized.includes(keyword)) {
+      return "base64";
+    }
   }
 
   for (const keyword of MIHOMO_UA_KEYWORDS) {
