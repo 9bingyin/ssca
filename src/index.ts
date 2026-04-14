@@ -15,5 +15,5 @@ logInfo("Server started", {
   proxiesFile: config.proxiesFile,
   profileIni: config.profileIni,
   templateFile: config.templateFile,
-  cacheTtlSeconds: config.cacheTtlSeconds
+  cacheTtlSeconds: config.cacheTtlSeconds,
 });

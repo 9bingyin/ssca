@@ -38,7 +38,11 @@ export interface ProxyGroupDefinition {
   tolerance?: number;
 }
 
-export type ProxyGroupType = "select" | "url-test" | "fallback" | "load-balance";
+export type ProxyGroupType =
+  | "select"
+  | "url-test"
+  | "fallback"
+  | "load-balance";
 
 export interface CompiledConfig {
   proxies: Record<string, unknown>[];

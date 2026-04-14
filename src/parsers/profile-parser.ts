@@ -3,14 +3,14 @@ import type {
   ParsedProfile,
   ProxyGroupDefinition,
   ProxyGroupType,
-  RulesetDefinition
+  RulesetDefinition,
 } from "../types";
 
 const SUPPORTED_GROUP_TYPES = new Set<ProxyGroupType>([
   "select",
   "url-test",
   "fallback",
-  "load-balance"
+  "load-balance",
 ]);
 
 export function parseProfileIni(content: string): ParsedProfile {
@@ -39,7 +39,9 @@ export function parseProfileIni(content: string): ParsedProfile {
     }
 
     if (line.startsWith("custom_proxy_group=")) {
-      proxyGroups.push(parseProxyGroup(line.slice("custom_proxy_group=".length)));
+      proxyGroups.push(
+        parseProxyGroup(line.slice("custom_proxy_group=".length)),
+      );
     }
   }
 
@@ -65,7 +67,7 @@ function parseRuleset(value: string): RulesetDefinition {
   return {
     policy,
     source,
-    value: parts.slice(2).join(",").trim() || undefined
+    value: parts.slice(2).join(",").trim() || undefined,
   };
 }
 
@@ -85,18 +87,24 @@ function parseProxyGroup(value: string): ProxyGroupDefinition {
     return {
       name,
       type,
-      rawMembers: rest
+      rawMembers: rest,
     };
   }
 
   if (rest.length < 3) {
-    throw new AppError(`Proxy group ${name} is missing url-test parameters`, 500);
+    throw new AppError(
+      `Proxy group ${name} is missing url-test parameters`,
+      500,
+    );
   }
 
   const testUrl = rest.at(-2);
   const intervalConfig = rest.at(-1);
   if (!testUrl || !intervalConfig) {
-    throw new AppError(`Proxy group ${name} is missing test url or interval`, 500);
+    throw new AppError(
+      `Proxy group ${name} is missing test url or interval`,
+      500,
+    );
   }
 
   const intervals = intervalConfig.split(",").map((item) => item.trim());
@@ -112,7 +120,7 @@ function parseProxyGroup(value: string): ProxyGroupDefinition {
     testUrl,
     intervalSeconds,
     timeout: parseOptionalInteger(intervals[1]),
-    tolerance: parseOptionalInteger(intervals[2])
+    tolerance: parseOptionalInteger(intervals[2]),
   };
 }
 

@@ -10,12 +10,12 @@ const MIHOMO_UA_KEYWORDS = [
   "clashforwindows",
   "clashx",
   "mihomo",
-  "metacubex"
+  "metacubex",
 ];
 
 export function createServer(
   appConfig: AppConfig,
-  builder: ConfigBuilder
+  builder: ConfigBuilder,
 ): Bun.Server<undefined> {
   return Bun.serve({
     hostname: appConfig.listenHost,
@@ -35,7 +35,7 @@ export function createServer(
 
         const target = resolveTarget(
           url.searchParams.get("target") ?? "auto",
-          request.headers.get("user-agent")
+          request.headers.get("user-agent"),
         );
         if (target !== "mihomo") {
           throw new AppError(`Unsupported target: ${target}`, 400);
@@ -45,15 +45,15 @@ export function createServer(
         logInfo("Request served", {
           path: url.pathname,
           target,
-          durationMs: Date.now() - startedAt
+          durationMs: Date.now() - startedAt,
         });
 
         return new Response(body, {
           status: 200,
           headers: {
             "content-type": "text/yaml; charset=utf-8",
-            "cache-control": "no-store"
-          }
+            "cache-control": "no-store",
+          },
         });
       } catch (error) {
         const appError = normalizeError(error);
@@ -61,15 +61,18 @@ export function createServer(
           path: url.pathname,
           statusCode: appError.statusCode,
           error: appError.message,
-          durationMs: Date.now() - startedAt
+          durationMs: Date.now() - startedAt,
         });
         return textResponse(appError.message, appError.statusCode);
       }
-    }
+    },
   });
 }
 
-export function resolveTarget(target: string, userAgent: string | null): "mihomo" {
+export function resolveTarget(
+  target: string,
+  userAgent: string | null,
+): "mihomo" {
   if (target === "mihomo") {
     return "mihomo";
   }
@@ -107,7 +110,7 @@ function textResponse(message: string, status: number): Response {
   return new Response(message, {
     status,
     headers: {
-      "content-type": "text/plain; charset=utf-8"
-    }
+      "content-type": "text/plain; charset=utf-8",
+    },
   });
 }

@@ -3,20 +3,28 @@ import { AppError } from "../errors";
 import { logWarn } from "../logger";
 import { parseProfileIni } from "../parsers/profile-parser";
 import { ResourceLoader } from "../loaders/resource-loader";
+import { validateMihomoConfig } from "../validators";
 import type {
   AppConfig,
   CompiledConfig,
   ParsedProfile,
   ProxyGroupDefinition,
-  RulesetDefinition
+  RulesetDefinition,
 } from "../types";
 
-const STATIC_POLICY_NAMES = new Set(["DIRECT", "REJECT", "REJECT-DROP", "PASS"]);
+const STATIC_POLICY_NAMES = new Set([
+  "DIRECT",
+  "REJECT",
+  "REJECT-DROP",
+  "PASS",
+  "COMPATIBLE",
+  "GLOBAL",
+]);
 
 export class ConfigBuilder {
   constructor(
     private readonly appConfig: AppConfig,
-    private readonly loader: ResourceLoader
+    private readonly loader: ResourceLoader,
   ) {}
 
   async build(): Promise<string> {
@@ -25,7 +33,11 @@ export class ConfigBuilder {
     const template = await this.loadTemplate();
     const compiled = await this.compileConfig(proxies, profile);
 
-    if (typeof template !== "object" || template === null || Array.isArray(template)) {
+    if (
+      typeof template !== "object" ||
+      template === null ||
+      Array.isArray(template)
+    ) {
       throw new AppError("Template YAML must be a mapping object", 500);
     }
 
@@ -33,24 +45,33 @@ export class ConfigBuilder {
       ...template,
       proxies: compiled.proxies,
       "proxy-groups": compiled.proxyGroups,
-      rules: compiled.rules
+      rules: compiled.rules,
     };
 
+    validateMihomoConfig(output);
+
     return YAML.stringify(output, {
-      lineWidth: 0
+      lineWidth: 0,
     });
   }
 
   private async loadProxies(): Promise<Record<string, unknown>[]> {
     const raw = await this.loader.loadText(this.appConfig.proxiesFile);
     const parsed = YAML.parse(raw);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       throw new AppError("Proxies file must be a YAML object", 500);
     }
 
     const proxies = (parsed as { proxies?: unknown }).proxies;
     if (!Array.isArray(proxies)) {
-      throw new AppError("Proxies file must contain a top-level proxies array", 500);
+      throw new AppError(
+        "Proxies file must contain a top-level proxies array",
+        500,
+      );
     }
 
     return normalizeProxyNames(proxies as Record<string, unknown>[]);
@@ -68,7 +89,7 @@ export class ConfigBuilder {
 
   private async compileConfig(
     proxies: Record<string, unknown>[],
-    profile: ParsedProfile
+    profile: ParsedProfile,
   ): Promise<CompiledConfig> {
     const proxyNames = proxies
       .map((proxy) => {
@@ -80,7 +101,7 @@ export class ConfigBuilder {
     const groupNames = new Set(profile.proxyGroups.map((group) => group.name));
 
     const proxyGroups = profile.proxyGroups.map((group) =>
-      compileProxyGroup(group, proxyNames, groupNames)
+      compileProxyGroup(group, proxyNames, groupNames),
     );
 
     const rules = await compileRules(profile.rulesets, this.loader);
@@ -88,12 +109,14 @@ export class ConfigBuilder {
     return {
       proxies,
       proxyGroups,
-      rules
+      rules,
     };
   }
 }
 
-function normalizeProxyNames(proxies: Record<string, unknown>[]): Record<string, unknown>[] {
+function normalizeProxyNames(
+  proxies: Record<string, unknown>[],
+): Record<string, unknown>[] {
   const seenBySignature = new Set<string>();
   const seenByName = new Map<string, number>();
   const normalized: Record<string, unknown>[] = [];
@@ -119,14 +142,16 @@ function normalizeProxyNames(proxies: Record<string, unknown>[]): Record<string,
 
     normalized.push({
       ...proxy,
-      name: `${name} ${String(count + 1).padStart(2, "0")}`
+      name: `${name} ${String(count + 1).padStart(2, "0")}`,
     });
   }
 
   return normalized;
 }
 
-function stripProxyName(proxy: Record<string, unknown>): Record<string, unknown> {
+function stripProxyName(
+  proxy: Record<string, unknown>,
+): Record<string, unknown> {
   const { name: _name, ...rest } = proxy;
   return rest;
 }
@@ -149,14 +174,14 @@ function stableStringify(value: unknown): string {
 function compileProxyGroup(
   group: ProxyGroupDefinition,
   proxyNames: string[],
-  groupNames: Set<string>
+  groupNames: Set<string>,
 ): Record<string, unknown> {
   const proxies = resolveGroupMembers(group, proxyNames, groupNames);
 
   const result: Record<string, unknown> = {
     name: group.name,
     type: group.type,
-    proxies
+    proxies,
   };
 
   if (group.testUrl) {
@@ -178,7 +203,7 @@ function compileProxyGroup(
 function resolveGroupMembers(
   group: ProxyGroupDefinition,
   proxyNames: string[],
-  groupNames: Set<string>
+  groupNames: Set<string>,
 ): string[] {
   const members: string[] = [];
   const seen = new Set<string>();
@@ -191,14 +216,20 @@ function resolveGroupMembers(
     if (token.startsWith("[]")) {
       const explicitName = token.slice(2);
       if (!explicitName) {
-        throw new AppError(`Group ${group.name} contains an empty explicit member`, 500);
+        throw new AppError(
+          `Group ${group.name} contains an empty explicit member`,
+          500,
+        );
       }
-      if (!STATIC_POLICY_NAMES.has(explicitName) && !groupNames.has(explicitName)) {
+      if (
+        !STATIC_POLICY_NAMES.has(explicitName) &&
+        !groupNames.has(explicitName)
+      ) {
         const hasProxy = proxyNames.includes(explicitName);
         if (!hasProxy) {
           throw new AppError(
             `Group ${group.name} references unknown member: ${explicitName}`,
-            500
+            500,
           );
         }
       }
@@ -215,7 +246,7 @@ function resolveGroupMembers(
     if (matches.length === 0) {
       logWarn("Proxy group regex matched no proxies", {
         group: group.name,
-        pattern: token
+        pattern: token,
       });
       continue;
     }
@@ -233,7 +264,7 @@ function resolveGroupMembers(
 
 async function compileRules(
   rulesets: RulesetDefinition[],
-  loader: ResourceLoader
+  loader: ResourceLoader,
 ): Promise<string[]> {
   const rules: string[] = [];
 
@@ -249,7 +280,7 @@ async function compileRules(
       if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith(";")) {
         continue;
       }
-      rules.push(`${trimmed},${ruleset.policy}`);
+      rules.push(attachRuleTarget(trimmed, ruleset.policy));
     }
   }
 
@@ -265,10 +296,40 @@ function compileInlineRule(ruleset: RulesetDefinition): string {
   if (inline === "GEOIP") {
     const country = ruleset.value?.trim();
     if (!country) {
-      throw new AppError(`GEOIP ruleset is missing country for ${ruleset.policy}`, 500);
+      throw new AppError(
+        `GEOIP ruleset is missing country for ${ruleset.policy}`,
+        500,
+      );
     }
     return `GEOIP,${country},${ruleset.policy}`;
   }
 
   return `${inline},${ruleset.value ? `${ruleset.value},` : ""}${ruleset.policy}`;
+}
+
+function attachRuleTarget(rule: string, policy: string): string {
+  const items = rule.split(",").map((item) => item.trim());
+  const type = (items[0] ?? "").toUpperCase();
+
+  if (items.length < 2) {
+    throw new AppError(`Invalid remote rule line: ${rule}`, 500);
+  }
+
+  switch (type) {
+    case "MATCH":
+      return `MATCH,${policy}`;
+    case "NOT":
+    case "OR":
+    case "AND":
+    case "SUB-RULE":
+    case "DOMAIN-REGEX":
+    case "PROCESS-NAME-REGEX":
+    case "PROCESS-PATH-REGEX":
+      return `${type},${items.slice(1).join(",")},${policy}`;
+    default: {
+      const payload = items[1];
+      const params = items.slice(2);
+      return [type, payload, policy, ...params].join(",");
+    }
+  }
 }

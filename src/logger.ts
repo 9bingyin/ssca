@@ -6,15 +6,22 @@ export function logWarn(message: string, data?: Record<string, unknown>): void {
   log("WARN", message, data);
 }
 
-export function logError(message: string, data?: Record<string, unknown>): void {
+export function logError(
+  message: string,
+  data?: Record<string, unknown>,
+): void {
   log("ERROR", message, data);
 }
 
-function log(level: string, message: string, data?: Record<string, unknown>): void {
+function log(
+  level: string,
+  message: string,
+  data?: Record<string, unknown>,
+): void {
   const payload = {
     level,
     message,
-    ...(data ? { data } : {})
+    ...(data ? { data } : {}),
   };
   console.log(JSON.stringify(payload));
 }

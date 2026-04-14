@@ -21,7 +21,7 @@ custom_proxy_group=自动选择\`url-test\`.*\`http://detectportal.firefox.com/s
       testUrl: "http://detectportal.firefox.com/success.txt",
       intervalSeconds: 300,
       timeout: undefined,
-      tolerance: 50
+      tolerance: 50,
     });
   });
 });

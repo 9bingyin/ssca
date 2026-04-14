@@ -37,7 +37,7 @@ export function parseCliArgs(argv: string[]): AppConfig {
 
   const cacheTtlSeconds = Number.parseInt(
     options.get("--cache-ttl") ?? `${DEFAULT_TTL_SECONDS}`,
-    10
+    10,
   );
   if (!Number.isInteger(cacheTtlSeconds) || cacheTtlSeconds < 0) {
     throw new AppError("Invalid --cache-ttl value", 500);
@@ -49,7 +49,7 @@ export function parseCliArgs(argv: string[]): AppConfig {
     proxiesFile: path.resolve(proxiesFile),
     profileIni,
     templateFile: path.resolve(templateFile),
-    cacheTtlSeconds
+    cacheTtlSeconds,
   };
 }
 

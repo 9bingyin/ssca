@@ -31,7 +31,7 @@ export class ResourceLoader {
     const value = await fs.readFile(filePath, "utf8");
     this.fileCache.set(filePath, {
       mtimeMs: stat.mtimeMs,
-      value
+      value,
     });
     return value;
   }
@@ -51,7 +51,7 @@ export class ResourceLoader {
     const value = await response.text();
     this.remoteCache.set(url, {
       expiresAt: now + this.cacheTtlSeconds * 1000,
-      value
+      value,
     });
     logInfo("Remote resource refreshed", { url });
     return value;
