@@ -6,6 +6,7 @@ const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_PORT = 3000;
 const DEFAULT_TTL_SECONDS = 300;
 
+const DEFAULT_SING_BOX_TEMPLATE_FILE = "data/sing-box.json";
 export function parseCliArgs(argv: string[]): AppConfig {
   const options = new Map<string, string>();
 
@@ -34,6 +35,8 @@ export function parseCliArgs(argv: string[]): AppConfig {
   const proxiesFile = requirePath(options, "--proxies-file");
   const templateFile = requirePath(options, "--template-file");
   const profileIni = requireValue(options, "--profile-ini");
+  const singBoxTemplateFile =
+    options.get("--sing-box-template-file") ?? DEFAULT_SING_BOX_TEMPLATE_FILE;
 
   const cacheTtlSeconds = Number.parseInt(
     options.get("--cache-ttl") ?? `${DEFAULT_TTL_SECONDS}`,
@@ -49,6 +52,7 @@ export function parseCliArgs(argv: string[]): AppConfig {
     proxiesFile: path.resolve(proxiesFile),
     profileIni,
     templateFile: path.resolve(templateFile),
+    singBoxTemplateFile: path.resolve(singBoxTemplateFile),
     cacheTtlSeconds,
   };
 }

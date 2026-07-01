@@ -4,6 +4,7 @@ export interface AppConfig {
   proxiesFile: string;
   profileIni: string;
   templateFile: string;
+  singBoxTemplateFile?: string;
   cacheTtlSeconds: number;
 }
 
@@ -47,4 +48,4 @@ export interface CompiledConfig {
   rules: string[];
 }
 
-export type OutputTarget = "mihomo" | "base64";
+export type OutputTarget = "mihomo" | "base64" | "sing-box";

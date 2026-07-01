@@ -12,6 +12,11 @@ describe("resolveTarget", () => {
     expect(resolveTarget("base64", null)).toBe("base64");
   });
 
+  test("returns sing-box for sing-box user agent or target", () => {
+    expect(resolveTarget("auto", "sing-box/1.13.14")).toBe("sing-box");
+    expect(resolveTarget("sing-box", null)).toBe("sing-box");
+  });
+
   test("throws for invalid target", () => {
     expect(() => resolveTarget("surge", null)).toThrow("Invalid target");
   });

@@ -3,7 +3,8 @@ import { AppError } from "../errors";
 import { ResourceLoader } from "../loaders/resource-loader";
 import { parseProfileIni } from "../parsers/profile-parser";
 import { serializeBase64Subscription } from "../serializers/base64-subscription";
-import { validateMihomoConfig } from "../validators";
+import { serializeSingBoxConfig } from "../serializers/sing-box-config";
+import { validateMihomoConfig, validateSingBoxConfig } from "../validators";
 import { compileProxyGroup } from "./config/proxy-groups";
 import { compileRules } from "./config/rules";
 import { normalizeProxyNames } from "./config/normalize-proxies";
@@ -48,6 +49,16 @@ export class ConfigBuilder {
     return serializeBase64Subscription(proxies);
   }
 
+  async buildSingBoxConfig(): Promise<string> {
+    const proxies = await this.loadProxies();
+    const profile = await this.loadProfile();
+    const template = await this.loadSingBoxTemplate();
+    const compiled = await this.compileConfig(proxies, profile);
+    const output = serializeSingBoxConfig(template, compiled);
+    validateSingBoxConfig(JSON.parse(output) as Record<string, unknown>);
+    return output;
+  }
+
   private async loadProxies(): Promise<Record<string, unknown>[]> {
     const raw = await this.loader.loadText(this.appConfig.proxiesFile);
     const parsed = YAML.parse(raw);
@@ -78,6 +89,27 @@ export class ConfigBuilder {
   private async loadTemplate(): Promise<Record<string, unknown>> {
     const raw = await this.loader.loadText(this.appConfig.templateFile);
     return YAML.parse(raw) as Record<string, unknown>;
+  }
+
+  private async loadSingBoxTemplate(): Promise<Record<string, unknown>> {
+    const templateFile = this.appConfig.singBoxTemplateFile;
+    if (!templateFile) {
+      throw new AppError("Missing sing-box template file", 500);
+    }
+
+    const raw = await this.loader.loadText(templateFile);
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      throw new AppError(
+        "sing-box template JSON must be a mapping object",
+        500,
+      );
+    }
+    return parsed as Record<string, unknown>;
   }
 
   private async compileConfig(

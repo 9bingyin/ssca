@@ -14,6 +14,7 @@ const MIHOMO_UA_KEYWORDS = [
 ];
 
 const BASE64_UA_KEYWORDS = ["v2rayn"];
+const SING_BOX_UA_KEYWORDS = ["sing-box", "sfa", "sfi", "sfm"];
 
 export function createServer(
   appConfig: AppConfig,
@@ -39,10 +40,7 @@ export function createServer(
           url.searchParams.get("target") ?? "auto",
           request.headers.get("user-agent"),
         );
-        const body =
-          target === "base64"
-            ? await builder.buildBase64Subscription()
-            : await builder.build();
+        const body = await buildTargetBody(target, builder);
         logInfo("Request served", {
           path: url.pathname,
           target,
@@ -52,10 +50,7 @@ export function createServer(
         return new Response(body, {
           status: 200,
           headers: {
-            "content-type":
-              target === "base64"
-                ? "text/plain; charset=utf-8"
-                : "text/yaml; charset=utf-8",
+            "content-type": getContentType(target),
             "cache-control": "no-store",
           },
         });
@@ -76,8 +71,8 @@ export function createServer(
 export function resolveTarget(
   target: string,
   userAgent: string | null,
-): "mihomo" | "base64" {
-  if (target === "mihomo" || target === "base64") {
+): "mihomo" | "base64" | "sing-box" {
+  if (target === "mihomo" || target === "base64" || target === "sing-box") {
     return target;
   }
   if (target !== "auto") {
@@ -95,6 +90,12 @@ export function resolveTarget(
     }
   }
 
+  for (const keyword of SING_BOX_UA_KEYWORDS) {
+    if (normalized.includes(keyword)) {
+      return "sing-box";
+    }
+  }
+
   for (const keyword of MIHOMO_UA_KEYWORDS) {
     if (normalized.includes(keyword)) {
       return "mihomo";
@@ -102,6 +103,29 @@ export function resolveTarget(
   }
 
   return "mihomo";
+}
+
+function buildTargetBody(
+  target: "mihomo" | "base64" | "sing-box",
+  builder: ConfigBuilder,
+): Promise<string> {
+  if (target === "base64") {
+    return builder.buildBase64Subscription();
+  }
+  if (target === "sing-box") {
+    return builder.buildSingBoxConfig();
+  }
+  return builder.build();
+}
+
+function getContentType(target: "mihomo" | "base64" | "sing-box"): string {
+  if (target === "base64") {
+    return "text/plain; charset=utf-8";
+  }
+  if (target === "sing-box") {
+    return "application/json; charset=utf-8";
+  }
+  return "text/yaml; charset=utf-8";
 }
 
 function normalizeError(error: unknown): AppError {

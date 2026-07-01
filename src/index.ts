@@ -15,5 +15,6 @@ logInfo("Server started", {
   proxiesFile: config.proxiesFile,
   profileIni: config.profileIni,
   templateFile: config.templateFile,
+  singBoxTemplateFile: config.singBoxTemplateFile,
   cacheTtlSeconds: config.cacheTtlSeconds,
 });
