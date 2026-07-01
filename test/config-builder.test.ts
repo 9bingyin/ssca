@@ -245,7 +245,7 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
     );
     await fs.writeFile(
       directFile,
-      "DOMAIN-SUFFIX,example.com\nIP-CIDR,10.0.0.0/8,no-resolve\nGEOIP,CN\n",
+      "DOMAIN-SUFFIX,example.com\nDOMAIN-SUFFIX,example.org\nIP-CIDR,10.0.0.0/8,no-resolve\nGEOIP,CN\n",
     );
     await fs.writeFile(
       profileFile,
@@ -296,7 +296,7 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
       "anytls",
     );
     expect(rules[0]).toEqual({
-      domain_suffix: ["example.com"],
+      domain_suffix: ["example.com", "example.org"],
       outbound: "直连规则",
     });
     expect(rules[1]).toEqual({
@@ -312,7 +312,7 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
         tag: "geoip-cn",
         type: "remote",
         format: "binary",
-        url: "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs",
+        url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/cn.srs",
       },
     ]);
     expect(route.final).toBe("默认规则");
