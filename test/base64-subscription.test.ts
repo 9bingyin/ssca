@@ -441,6 +441,182 @@ describe("serializeBase64Subscription", () => {
     expect(line).not.toContain("insecure=");
     expect(line).not.toContain("allowInsecure=");
   });
+
+  test("normalizes vmess security aliases for v2rayN compatibility", () => {
+    const result = serializeBase64Subscription([
+      {
+        name: "VMess Alias",
+        type: "vmess",
+        server: "vmess.example.com",
+        port: 443,
+        uuid: "1386f85e-657b-4d6e-9d56-78badb75e1fd",
+        alterId: 0,
+        cipher: "chacha20-ietf-poly1305",
+      },
+      {
+        name: "VMess Unknown",
+        type: "vmess",
+        server: "vmess.example.com",
+        port: 443,
+        uuid: "1386f85e-657b-4d6e-9d56-78badb75e1fd",
+        alterId: 0,
+        cipher: "unsupported-cipher",
+      },
+    ]);
+
+    const [aliasLine, fallbackLine] = decodeBase64Subscription(result);
+
+    expect(parseVmess(aliasLine!).scy).toBe("chacha20-poly1305");
+    expect(parseVmess(fallbackLine!).scy).toBe("auto");
+  });
+
+  test("serializes vless reality, packet encoding and websocket metadata", () => {
+    const result = serializeBase64Subscription([
+      {
+        name: "VLESS WS Metadata",
+        type: "vless",
+        server: "vless.example.com",
+        port: 443,
+        uuid: "1386f85e-657b-4d6e-9d56-78badb75e1fd",
+        network: "ws",
+        tls: true,
+        servername: "cdn.example.com",
+        "client-fingerprint": "chrome",
+        xudp: true,
+        "ws-opts": {
+          path: "/ws",
+          headers: { Host: "edge.example.com" },
+          "max-early-data": 2048,
+          "early-data-header-name": "X-Early-Data",
+        },
+        "reality-opts": {
+          "public-key": "pubkey",
+          "short-id": "abcd1234",
+          "_spider-x": "/spider",
+        },
+      },
+    ]);
+
+    const [line] = decodeBase64Subscription(result);
+    const params = new URL(line!).searchParams;
+
+    expect(params.get("security")).toBe("reality");
+    expect(params.get("pbk")).toBe("pubkey");
+    expect(params.get("sid")).toBe("abcd1234");
+    expect(params.get("spx")).toBe("/spider");
+    expect(params.get("packetEncoding")).toBe("xudp");
+    expect(params.get("type")).toBe("ws");
+    expect(params.get("host")).toBe("edge.example.com");
+    expect(params.get("path")).toBe("/ws");
+    expect(params.get("ed")).toBe("2048");
+    expect(params.get("eh")).toBe("X-Early-Data");
+  });
+
+  test("serializes vless transport details learned from Sub-Store", () => {
+    const result = serializeBase64Subscription([
+      {
+        name: "VLESS HTTPUpgrade",
+        type: "vless",
+        server: "vless.example.com",
+        port: 443,
+        uuid: "1386f85e-657b-4d6e-9d56-78badb75e1fd",
+        network: "ws",
+        "ws-opts": {
+          path: "/upgrade",
+          headers: { Host: "edge.example.com" },
+          "v2ray-http-upgrade": true,
+          "v2ray-http-upgrade-fast-open": true,
+          "max-early-data": 2560,
+        },
+      },
+      {
+        name: "VLESS gRPC",
+        type: "vless",
+        server: "vless.example.com",
+        port: 443,
+        uuid: "1386f85e-657b-4d6e-9d56-78badb75e1fd",
+        network: "grpc",
+        "grpc-opts": {
+          "grpc-service-name": "svc",
+          "_grpc-type": "gun",
+          "_grpc-authority": "grpc-authority.example.com",
+        },
+      },
+      {
+        name: "VLESS HTTP",
+        type: "vless",
+        server: "vless.example.com",
+        port: 443,
+        uuid: "1386f85e-657b-4d6e-9d56-78badb75e1fd",
+        network: "http",
+        "http-opts": {
+          method: "POST",
+          path: ["/api"],
+          headers: { Host: ["http.example.com"] },
+        },
+      },
+    ]);
+
+    const [httpUpgradeLine, grpcLine, httpLine] =
+      decodeBase64Subscription(result);
+    const httpUpgrade = new URL(httpUpgradeLine!).searchParams;
+    const grpc = new URL(grpcLine!).searchParams;
+    const http = new URL(httpLine!).searchParams;
+
+    expect(httpUpgrade.get("type")).toBe("httpupgrade");
+    expect(httpUpgrade.get("path")).toBe("/upgrade?ed=2560");
+    expect(httpUpgrade.has("ed")).toBe(false);
+
+    expect(grpc.get("type")).toBe("grpc");
+    expect(grpc.get("serviceName")).toBe("svc");
+    expect(grpc.get("mode")).toBe("gun");
+    expect(grpc.get("authority")).toBe("grpc-authority.example.com");
+
+    expect(http.get("type")).toBe("http");
+    expect(http.get("method")).toBe("POST");
+    expect(http.get("path")).toBe("/api");
+    expect(http.get("host")).toBe("http.example.com");
+  });
+
+  test("serializes shadowsocks plugin compatibility flags", () => {
+    const result = serializeBase64Subscription([
+      {
+        name: "SS Plugin Extended",
+        type: "ss",
+        server: "ss.example.com",
+        port: 443,
+        cipher: "chacha20-ietf-poly1305",
+        password: "pass",
+        "udp-over-tcp": true,
+        tfo: true,
+        plugin: "v2ray-plugin",
+        "plugin-opts": {
+          mode: "websocket",
+          tls: true,
+          host: "cdn.example.com",
+          path: "/ws",
+          sni: "sni.example.com",
+          "skip-cert-verify": true,
+          mux: 1,
+        },
+      },
+    ]);
+
+    const [line] = decodeBase64Subscription(result);
+    const params = new URL(line!).searchParams;
+    const plugin = params.get("plugin") ?? "";
+
+    expect(plugin).toContain("v2ray-plugin");
+    expect(plugin).toContain("mode=websocket");
+    expect(plugin).toContain("host=cdn.example.com");
+    expect(plugin).toContain("path=/ws");
+    expect(plugin).toContain("tls");
+    expect(plugin).toContain("sni=sni.example.com");
+    expect(plugin).toContain("skip-cert-verify=true");
+    expect(plugin).toContain("mux=1");
+    expect(params.get("uot")).toBe("1");
+    expect(params.get("tfo")).toBe("1");
+  });
 });
 
 describe("validateBase64SubscriptionProxy", () => {

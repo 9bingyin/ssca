@@ -15,6 +15,8 @@ import {
   type ProxyRecord,
 } from "./helpers";
 
+const DEFAULT_WS_EARLY_DATA_HEADER = "Sec-WebSocket-Protocol";
+
 export function buildUriQuery(
   proxy: ProxyRecord,
   includeV2RayTransport: boolean,
@@ -63,13 +65,20 @@ export function buildUriQuery(
     if (shortId) {
       query.set("sid", shortId);
     }
+    const spiderX = getOptionalString(realityOpts, "_spider-x");
+    if (spiderX) {
+      query.set("spx", spiderX);
+    }
+  }
+
+  const packetEncoding = resolvePacketEncoding(proxy);
+  if (packetEncoding) {
+    query.set("packetEncoding", packetEncoding);
   }
 
   if (!includeV2RayTransport) {
     return query;
   }
-
-  query.set("type", network);
 
   const wsOpts = getOptionalObject(proxy, "ws-opts");
   const grpcOpts = getOptionalObject(proxy, "grpc-opts");
@@ -77,17 +86,16 @@ export function buildUriQuery(
   const httpOpts = getOptionalObject(proxy, "http-opts");
   const xhttpOpts = getOptionalObject(proxy, "xhttp-opts");
 
+  query.set("type", resolveTransportType(network, wsOpts));
+
   if (network === "tcp") {
     query.set("headerType", "none");
   } else if (network === "ws") {
-    const host = getHeaderHost(wsOpts);
-    if (host) {
-      query.set("host", host);
-    }
-    query.set("path", getOptionalString(wsOpts, "path") ?? "/");
+    applyWebSocketTransportQuery(query, wsOpts);
   } else if (network === "grpc") {
     const authority =
       getOptionalString(grpcOpts, "authority") ??
+      getOptionalString(grpcOpts, "_grpc-authority") ??
       getOptionalString(proxy, "servername");
     if (authority) {
       query.set("authority", authority);
@@ -96,6 +104,11 @@ export function buildUriQuery(
     const serviceName = getOptionalString(grpcOpts, "grpc-service-name");
     if (serviceName) {
       query.set("serviceName", serviceName);
+    }
+
+    const mode = getOptionalString(grpcOpts, "_grpc-type");
+    if (mode) {
+      query.set("mode", mode);
     }
   } else if (network === "h2") {
     const host = stringifyHostList(h2Opts?.host);
@@ -111,6 +124,10 @@ export function buildUriQuery(
     const path = stringifyPathList(httpOpts?.path);
     if (path) {
       query.set("path", path);
+    }
+    const method = getOptionalString(httpOpts, "method");
+    if (method) {
+      query.set("method", method);
     }
   } else if (network === "xhttp") {
     const host = getOptionalString(xhttpOpts, "host");
@@ -175,4 +192,89 @@ export function buildUri(
   const serializedQuery = query.toString();
   const remark = encodeURIComponent(getName(proxy));
   return `${scheme}://${authority}${serializedQuery ? `?${serializedQuery}` : ""}#${remark}`;
+}
+
+function resolveTransportType(
+  network: string,
+  wsOpts: ProxyRecord | null,
+): string {
+  if (network === "ws" && getBoolean(wsOpts, "v2ray-http-upgrade")) {
+    return "httpupgrade";
+  }
+
+  return network;
+}
+
+function applyWebSocketTransportQuery(
+  query: URLSearchParams,
+  wsOpts: ProxyRecord | null,
+): void {
+  const host = getHeaderHost(wsOpts);
+  if (host) {
+    query.set("host", host);
+  }
+
+  const maxEarlyData = getOptionalIntegerText(wsOpts, "max-early-data");
+  const earlyDataHeader = getOptionalString(wsOpts, "early-data-header-name");
+  const httpUpgradeFastOpen = getBoolean(
+    wsOpts,
+    "v2ray-http-upgrade-fast-open",
+  );
+  const path = getOptionalString(wsOpts, "path") ?? "/";
+
+  if (httpUpgradeFastOpen && maxEarlyData) {
+    query.set("path", setPathQueryParam(path, "ed", maxEarlyData));
+  } else {
+    query.set("path", path);
+  }
+
+  if (!getBoolean(wsOpts, "v2ray-http-upgrade") && maxEarlyData) {
+    query.set("ed", maxEarlyData);
+  }
+
+  if (earlyDataHeader && earlyDataHeader !== DEFAULT_WS_EARLY_DATA_HEADER) {
+    query.set("eh", earlyDataHeader);
+  }
+}
+
+function resolvePacketEncoding(proxy: ProxyRecord): string | null {
+  if (getOptionalString(proxy, "type") !== "vless") {
+    return null;
+  }
+
+  const explicit = getOptionalString(proxy, "packet-encoding");
+  if (explicit === "packetaddr") {
+    return "packet";
+  }
+  if (explicit === "xudp" || explicit === "none" || explicit === "packet") {
+    return explicit;
+  }
+  if (getBoolean(proxy, "xudp")) {
+    return "xudp";
+  }
+  if (getBoolean(proxy, "packet-addr")) {
+    return "packet";
+  }
+  return null;
+}
+
+function getOptionalIntegerText(
+  object: ProxyRecord | null | undefined,
+  key: string,
+): string | null {
+  const value = object?.[key];
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
+    return `${value}`;
+  }
+  if (typeof value === "string" && /^\d+$/u.test(value.trim())) {
+    return value.trim();
+  }
+  return null;
+}
+
+function setPathQueryParam(path: string, key: string, value: string): string {
+  const [pathname, rawQuery = ""] = path.split("?", 2);
+  const params = new URLSearchParams(rawQuery);
+  params.set(key, value);
+  return `${pathname || "/"}?${params.toString()}`;
 }

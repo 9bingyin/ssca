@@ -28,8 +28,8 @@ import {
   buildUriQuery,
   resolveVmessType,
 } from "./query";
+import { normalizeVmessSecurity } from "./vmess-security";
 
-const DEFAULT_VMESS_CIPHER = "auto";
 const DEFAULT_VLESS_ENCRYPTION = "none";
 
 export function serializeProxy(proxy: ProxyRecord): string {
@@ -100,7 +100,28 @@ function serializeShadowsocks(proxy: ProxyRecord): string {
       parts.push("tls");
     }
 
+    const sni = getOptionalString(pluginOpts, "sni");
+    if (sni) {
+      parts.push(`sni=${sni}`);
+    }
+
+    if (getBoolean(pluginOpts, "skip-cert-verify")) {
+      parts.push("skip-cert-verify=true");
+    }
+
+    const mux = getNumber(pluginOpts, "mux");
+    if (typeof mux === "number") {
+      parts.push(`mux=${mux}`);
+    }
+
     query.set("plugin", parts.join(";"));
+  }
+
+  if (getBoolean(proxy, "udp-over-tcp")) {
+    query.set("uot", "1");
+  }
+  if (getBoolean(proxy, "tfo")) {
+    query.set("tfo", "1");
   }
 
   return buildUri(
@@ -146,7 +167,7 @@ function serializeVmess(proxy: ProxyRecord): string {
     port: getPort(proxy).toString(),
     id: getString(proxy, "uuid"),
     aid: getNumber(proxy, "alterId") ?? 0,
-    scy: getOptionalString(proxy, "cipher") ?? DEFAULT_VMESS_CIPHER,
+    scy: normalizeVmessSecurity(getOptionalString(proxy, "cipher")),
     net: network,
     type: resolveVmessType(proxy, network),
     host: "",
