@@ -64,9 +64,11 @@ rules: []
     const config: AppConfig = {
       listenHost: "127.0.0.1",
       listenPort: 3000,
+      configDir: tempRoot,
       proxiesFile,
       profileIni: profileFile,
       templateFile,
+      singBoxTemplateFile: path.join(tempRoot, "sing-box.json"),
       cacheTtlSeconds: 300,
     };
 
@@ -115,9 +117,11 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
     const config: AppConfig = {
       listenHost: "127.0.0.1",
       listenPort: 3000,
+      configDir: tempRoot,
       proxiesFile,
       profileIni: profileFile,
       templateFile: officialTemplateFile,
+      singBoxTemplateFile: path.join(tempRoot, "sing-box.json"),
       cacheTtlSeconds: 300,
     };
 
@@ -192,9 +196,11 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
     const config: AppConfig = {
       listenHost: "127.0.0.1",
       listenPort: 3000,
+      configDir: tempRoot,
       proxiesFile,
       profileIni: profileFile,
       templateFile,
+      singBoxTemplateFile: path.join(tempRoot, "sing-box.json"),
       cacheTtlSeconds: 300,
     };
 
@@ -267,6 +273,7 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
     const config: AppConfig = {
       listenHost: "127.0.0.1",
       listenPort: 3000,
+      configDir: tempRoot,
       proxiesFile,
       profileIni: profileFile,
       templateFile,

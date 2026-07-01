@@ -12,9 +12,6 @@ const server = createServer(config, builder);
 logInfo("Server started", {
   host: config.listenHost,
   port: config.listenPort,
-  proxiesFile: config.proxiesFile,
-  profileIni: config.profileIni,
-  templateFile: config.templateFile,
-  singBoxTemplateFile: config.singBoxTemplateFile,
+  configDir: config.configDir,
   cacheTtlSeconds: config.cacheTtlSeconds,
 });

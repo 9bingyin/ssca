@@ -5,68 +5,96 @@ import type { AppConfig } from "./types";
 const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_PORT = 3000;
 const DEFAULT_TTL_SECONDS = 300;
+const DEFAULT_CONFIG_DIR = "data";
 
-const DEFAULT_SING_BOX_TEMPLATE_FILE = "data/sing-box.json";
+const CONFIG_FILE_NAMES = {
+  proxies: "nodes.yaml",
+  mihomoTemplate: "mihomo.yaml",
+  singBoxTemplate: "sing-box.json",
+  profile: "profile.ini",
+} as const;
+
 export function parseCliArgs(argv: string[]): AppConfig {
-  const options = new Map<string, string>();
+  const options = parseOptions(argv);
+  const listen = options.listen ?? `${DEFAULT_HOST}:${DEFAULT_PORT}`;
+  const [listenHost, portText] = splitListen(listen);
+  const listenPort = parseListenPort(portText);
+  const cacheTtlSeconds = parseCacheTtl(options.cacheTtl);
+  const configDir = path.resolve(options.configDir ?? DEFAULT_CONFIG_DIR);
+
+  return {
+    listenHost,
+    listenPort,
+    configDir,
+    proxiesFile: path.join(configDir, CONFIG_FILE_NAMES.proxies),
+    profileIni: path.join(configDir, CONFIG_FILE_NAMES.profile),
+    templateFile: path.join(configDir, CONFIG_FILE_NAMES.mihomoTemplate),
+    singBoxTemplateFile: path.join(
+      configDir,
+      CONFIG_FILE_NAMES.singBoxTemplate,
+    ),
+    cacheTtlSeconds,
+  };
+}
+
+interface CliOptions {
+  configDir?: string;
+  listen?: string;
+  cacheTtl?: string;
+}
+
+function parseOptions(argv: string[]): CliOptions {
+  const options: CliOptions = {};
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    if (!token.startsWith("--")) {
+    if (token === "--listen") {
+      options.listen = readOptionValue(argv, ++index, token);
+    } else if (token === "--cache-ttl") {
+      options.cacheTtl = readOptionValue(argv, ++index, token);
+    } else if (token === "--config-dir") {
+      options.configDir = readOptionValue(argv, ++index, token);
+    } else if (token.startsWith("--")) {
+      throw new AppError(`Unknown argument: ${token}`, 500);
+    } else if (!options.configDir) {
+      options.configDir = token;
+    } else {
       throw new AppError(`Unexpected argument: ${token}`, 500);
     }
-
-    const next = argv[index + 1];
-    if (!next || next.startsWith("--")) {
-      throw new AppError(`Missing value for argument: ${token}`, 500);
-    }
-
-    options.set(token, next);
-    index += 1;
   }
 
-  const listen = options.get("--listen") ?? `${DEFAULT_HOST}:${DEFAULT_PORT}`;
-  const [listenHost, portText] = splitListen(listen);
+  return options;
+}
+
+function readOptionValue(
+  argv: string[],
+  index: number,
+  option: string,
+): string {
+  const value = argv[index];
+  if (!value || value.startsWith("--")) {
+    throw new AppError(`Missing value for argument: ${option}`, 500);
+  }
+  return value;
+}
+
+function parseListenPort(portText: string): number {
   const listenPort = Number.parseInt(portText, 10);
   if (!Number.isInteger(listenPort) || listenPort <= 0 || listenPort > 65535) {
     throw new AppError(`Invalid listen port: ${portText}`, 500);
   }
+  return listenPort;
+}
 
-  const proxiesFile = requirePath(options, "--proxies-file");
-  const templateFile = requirePath(options, "--template-file");
-  const profileIni = requireValue(options, "--profile-ini");
-  const singBoxTemplateFile =
-    options.get("--sing-box-template-file") ?? DEFAULT_SING_BOX_TEMPLATE_FILE;
-
+function parseCacheTtl(value: string | undefined): number {
   const cacheTtlSeconds = Number.parseInt(
-    options.get("--cache-ttl") ?? `${DEFAULT_TTL_SECONDS}`,
+    value ?? `${DEFAULT_TTL_SECONDS}`,
     10,
   );
   if (!Number.isInteger(cacheTtlSeconds) || cacheTtlSeconds < 0) {
     throw new AppError("Invalid --cache-ttl value", 500);
   }
-
-  return {
-    listenHost,
-    listenPort,
-    proxiesFile: path.resolve(proxiesFile),
-    profileIni,
-    templateFile: path.resolve(templateFile),
-    singBoxTemplateFile: path.resolve(singBoxTemplateFile),
-    cacheTtlSeconds,
-  };
-}
-
-function requirePath(options: Map<string, string>, key: string): string {
-  return requireValue(options, key);
-}
-
-function requireValue(options: Map<string, string>, key: string): string {
-  const value = options.get(key);
-  if (!value) {
-    throw new AppError(`Missing required argument: ${key}`, 500);
-  }
-  return value;
+  return cacheTtlSeconds;
 }
 
 function splitListen(listen: string): [string, string] {

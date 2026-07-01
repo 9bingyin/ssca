@@ -1,10 +1,11 @@
 export interface AppConfig {
   listenHost: string;
   listenPort: number;
+  configDir: string;
   proxiesFile: string;
   profileIni: string;
   templateFile: string;
-  singBoxTemplateFile?: string;
+  singBoxTemplateFile: string;
   cacheTtlSeconds: number;
 }
 

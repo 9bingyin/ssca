@@ -92,12 +92,7 @@ export class ConfigBuilder {
   }
 
   private async loadSingBoxTemplate(): Promise<Record<string, unknown>> {
-    const templateFile = this.appConfig.singBoxTemplateFile;
-    if (!templateFile) {
-      throw new AppError("Missing sing-box template file", 500);
-    }
-
-    const raw = await this.loader.loadText(templateFile);
+    const raw = await this.loader.loadText(this.appConfig.singBoxTemplateFile);
     const parsed = JSON.parse(raw) as unknown;
     if (
       typeof parsed !== "object" ||
