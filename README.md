@@ -22,6 +22,8 @@ data/
 
 `profile.ini` 中的远程规则会在构建时下载并展开。
 
+远程规则缓存默认写入运行目录下的 `.cache/remote-resources`。缓存过期后会使用 `ETag`/`Last-Modified` 发起条件请求；上游返回 `304 Not Modified` 时复用磁盘缓存，避免重复下载相同规则内容。
+
 ## 启动
 
 本地开发默认用 Bun：
@@ -52,6 +54,18 @@ bun run start -- --config-dir ./data
 
 ```bash
 bun run start -- ./data --listen 127.0.0.1:3000 --cache-ttl 300
+```
+
+覆盖 `profile.ini` 来源，其他文件仍从配置目录读取：
+
+```bash
+bun run start -- --config-dir ./data --profile-ini https://raw.githubusercontent.com/9bingyin/routes-info/refs/heads/main/profile.ini
+```
+
+本地文件也可以用 `file://`：
+
+```bash
+bun run start -- --config-dir ./data --profile-ini file:///absolute/path/profile.ini
 ```
 
 如果要直接使用 Node.js 工具链，也可以运行：

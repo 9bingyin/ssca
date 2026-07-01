@@ -21,13 +21,15 @@ export function parseCliArgs(argv: string[]): AppConfig {
   const listenPort = parseListenPort(portText);
   const cacheTtlSeconds = parseCacheTtl(options.cacheTtl);
   const configDir = path.resolve(options.configDir ?? DEFAULT_CONFIG_DIR);
+  const profileIni =
+    options.profileIni ?? path.join(configDir, CONFIG_FILE_NAMES.profile);
 
   return {
     listenHost,
     listenPort,
     configDir,
     proxiesFile: path.join(configDir, CONFIG_FILE_NAMES.proxies),
-    profileIni: path.join(configDir, CONFIG_FILE_NAMES.profile),
+    profileIni,
     templateFile: path.join(configDir, CONFIG_FILE_NAMES.mihomoTemplate),
     singBoxTemplateFile: path.join(
       configDir,
@@ -41,6 +43,7 @@ interface CliOptions {
   configDir?: string;
   listen?: string;
   cacheTtl?: string;
+  profileIni?: string;
 }
 
 function parseOptions(argv: string[]): CliOptions {
@@ -54,6 +57,8 @@ function parseOptions(argv: string[]): CliOptions {
       options.cacheTtl = readOptionValue(argv, ++index, token);
     } else if (token === "--config-dir") {
       options.configDir = readOptionValue(argv, ++index, token);
+    } else if (token === "--profile-ini") {
+      options.profileIni = readOptionValue(argv, ++index, token);
     } else if (token.startsWith("--")) {
       throw new AppError(`Unknown argument: ${token}`, 500);
     } else if (!options.configDir) {

@@ -36,9 +36,24 @@ describe("parseCliArgs", () => {
     expect(config.cacheTtlSeconds).toBe(0);
   });
 
-  test("accepts --config-dir and rejects legacy file arguments", () => {
-    expect(parseCliArgs(["--config-dir", "data"]).configDir).toBe(
-      path.resolve("data"),
+  test("accepts --config-dir and --profile-ini override", () => {
+    const remoteProfile =
+      "https://raw.githubusercontent.com/9bingyin/routes-info/refs/heads/main/profile.ini";
+    const config = parseCliArgs([
+      "--config-dir",
+      "data",
+      "--profile-ini",
+      remoteProfile,
+    ]);
+
+    expect(config.configDir).toBe(path.resolve("data"));
+    expect(config.profileIni).toBe(remoteProfile);
+  });
+
+  test("accepts file URL profile and rejects removed file arguments", () => {
+    const fileProfile = "file:///tmp/profile.ini";
+    expect(parseCliArgs(["--profile-ini", fileProfile]).profileIni).toBe(
+      fileProfile,
     );
     expect(() => parseCliArgs(["--proxies-file", "nodes.yaml"])).toThrow(
       "Unknown argument",

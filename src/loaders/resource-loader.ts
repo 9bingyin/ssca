@@ -1,12 +1,15 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { AppError } from "../errors";
 import { logInfo, logWarn } from "../logger";
-import type { CacheEntry, FileCacheEntry } from "../types";
+import type { FileCacheEntry } from "../types";
 
 const DEFAULT_REMOTE_TIMEOUT_MS = 10_000;
 const DEFAULT_REMOTE_RETRY_COUNT = 2;
 const DEFAULT_REMOTE_RETRY_DELAY_MS = 200;
+const DEFAULT_REMOTE_CACHE_DIR = path.resolve(".cache", "remote-resources");
 
 type RemoteFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -15,6 +18,26 @@ export interface ResourceLoaderOptions {
   remoteRetryCount?: number;
   remoteRetryDelayMs?: number;
   remoteFetch?: RemoteFetch;
+  remoteCacheDir?: string | false;
+}
+
+interface RemoteCacheEntry {
+  expiresAt: number;
+  value: string;
+  etag?: string;
+  lastModified?: string;
+}
+
+interface RemoteDiskCacheEntry extends RemoteCacheEntry {
+  version: 1;
+  url: string;
+}
+
+interface RemoteFetchResult {
+  value: string;
+  etag?: string;
+  lastModified?: string;
+  notModified: boolean;
 }
 
 class RemoteResourceError extends Error {
@@ -29,11 +52,12 @@ class RemoteResourceError extends Error {
 
 export class ResourceLoader {
   private readonly fileCache = new Map<string, FileCacheEntry<string>>();
-  private readonly remoteCache = new Map<string, CacheEntry<string>>();
+  private readonly remoteCache = new Map<string, RemoteCacheEntry>();
   private readonly remoteTimeoutMs: number;
   private readonly remoteRetryCount: number;
   private readonly remoteRetryDelayMs: number;
   private readonly remoteFetch: RemoteFetch;
+  private readonly remoteCacheDir: string | null;
 
   constructor(
     private readonly cacheTtlSeconds: number,
@@ -54,11 +78,16 @@ export class ResourceLoader {
       DEFAULT_REMOTE_RETRY_DELAY_MS,
     );
     this.remoteFetch = options.remoteFetch ?? fetch;
+    this.remoteCacheDir = resolveRemoteCacheDir(options.remoteCacheDir);
   }
 
   async loadText(source: string): Promise<string> {
     if (isRemoteSource(source)) {
       return this.loadRemoteText(source);
+    }
+
+    if (isFileUrlSource(source)) {
+      return this.loadFileText(fileURLToPath(source));
     }
 
     return this.loadFileText(path.resolve(source));
@@ -84,26 +113,42 @@ export class ResourceLoader {
 
   private async loadRemoteText(url: string): Promise<string> {
     const now = Date.now();
-    const cached = this.remoteCache.get(url);
+    const cached =
+      this.remoteCache.get(url) ?? (await this.readRemoteDiskCache(url));
+    if (cached) {
+      this.remoteCache.set(url, cached);
+    }
     if (cached && cached.expiresAt > now) {
       return cached.value;
     }
 
-    const value = await this.fetchRemoteTextWithRetry(url);
-    this.remoteCache.set(url, {
-      expiresAt: now + this.cacheTtlSeconds * 1000,
-      value,
-    });
-    logInfo("Remote resource refreshed", { url });
-    return value;
+    const result = await this.fetchRemoteTextWithRetry(url, cached);
+    const nextCache: RemoteCacheEntry = {
+      expiresAt: Date.now() + this.cacheTtlSeconds * 1000,
+      value: result.value,
+      etag: result.etag,
+      lastModified: result.lastModified,
+    };
+    this.remoteCache.set(url, nextCache);
+    await this.writeRemoteDiskCache(url, nextCache);
+    logInfo(
+      result.notModified
+        ? "Remote resource not modified"
+        : "Remote resource refreshed",
+      { url },
+    );
+    return result.value;
   }
 
-  private async fetchRemoteTextWithRetry(url: string): Promise<string> {
+  private async fetchRemoteTextWithRetry(
+    url: string,
+    cached?: RemoteCacheEntry,
+  ): Promise<RemoteFetchResult> {
     let lastError: RemoteResourceError | null = null;
 
     for (let attempt = 0; attempt <= this.remoteRetryCount; attempt += 1) {
       try {
-        return await this.fetchRemoteTextOnce(url);
+        return await this.fetchRemoteTextOnce(url, cached);
       } catch (error) {
         const remoteError = normalizeRemoteError(error);
         lastError = remoteError;
@@ -133,21 +178,41 @@ export class ResourceLoader {
     );
   }
 
-  private async fetchRemoteTextOnce(url: string): Promise<string> {
+  private async fetchRemoteTextOnce(
+    url: string,
+    cached?: RemoteCacheEntry,
+  ): Promise<RemoteFetchResult> {
     const controller = new AbortController();
     const timeout = createTimeout(controller, this.remoteTimeoutMs);
 
     try {
       const response = await this.remoteFetch(url, {
+        headers: getConditionalHeaders(cached),
         signal: timeout ? controller.signal : undefined,
       });
+      if (response.status === 304) {
+        if (!cached) {
+          throw new RemoteResourceError("HTTP 304 Not Modified", false);
+        }
+        return {
+          value: cached.value,
+          etag: cached.etag,
+          lastModified: cached.lastModified,
+          notModified: true,
+        };
+      }
       if (!response.ok) {
         throw new RemoteResourceError(
           formatHttpError(response),
           response.status === 429 || response.status >= 500,
         );
       }
-      return await response.text();
+      return {
+        value: await response.text(),
+        etag: response.headers.get("etag") ?? undefined,
+        lastModified: response.headers.get("last-modified") ?? undefined,
+        notModified: false,
+      };
     } catch (error) {
       if (error instanceof RemoteResourceError) {
         throw error;
@@ -165,10 +230,79 @@ export class ResourceLoader {
       }
     }
   }
+
+  private async readRemoteDiskCache(
+    url: string,
+  ): Promise<RemoteCacheEntry | undefined> {
+    if (!this.remoteCacheDir) {
+      return undefined;
+    }
+
+    const cachePath = this.getRemoteCachePath(url);
+    try {
+      const raw = await fs.readFile(cachePath, "utf8");
+      const parsed = JSON.parse(raw) as unknown;
+      if (!isRemoteDiskCacheEntry(parsed, url)) {
+        return undefined;
+      }
+      return {
+        expiresAt: parsed.expiresAt,
+        value: parsed.value,
+        etag: parsed.etag,
+        lastModified: parsed.lastModified,
+      };
+    } catch (error) {
+      if (isFileNotFoundError(error)) {
+        return undefined;
+      }
+      logWarn("Remote disk cache read failed", {
+        url,
+        error: formatFetchError(error),
+      });
+      return undefined;
+    }
+  }
+
+  private async writeRemoteDiskCache(
+    url: string,
+    cache: RemoteCacheEntry,
+  ): Promise<void> {
+    if (!this.remoteCacheDir) {
+      return;
+    }
+
+    const cachePath = this.getRemoteCachePath(url);
+    const diskCache: RemoteDiskCacheEntry = {
+      version: 1,
+      url,
+      ...cache,
+    };
+
+    try {
+      await fs.mkdir(this.remoteCacheDir, { recursive: true });
+      await fs.writeFile(cachePath, `${JSON.stringify(diskCache)}\n`, "utf8");
+    } catch (error) {
+      logWarn("Remote disk cache write failed", {
+        url,
+        error: formatFetchError(error),
+      });
+    }
+  }
+
+  private getRemoteCachePath(url: string): string {
+    if (!this.remoteCacheDir) {
+      throw new Error("Remote cache directory is disabled");
+    }
+    return path.join(this.remoteCacheDir, `${hashText(url)}.json`);
+  }
 }
 
 export function isRemoteSource(source: string): boolean {
   return source.startsWith("http://") || source.startsWith("https://");
+}
+
+export function isFileUrlSource(source: string): boolean {
+  return source.startsWith("file://");
 }
 
 function resolveNonNegativeOption(
@@ -180,6 +314,28 @@ function resolveNonNegativeOption(
   }
 
   return value;
+}
+
+function resolveRemoteCacheDir(
+  value: string | false | undefined,
+): string | null {
+  if (value === false) {
+    return null;
+  }
+  return path.resolve(value ?? DEFAULT_REMOTE_CACHE_DIR);
+}
+
+function getConditionalHeaders(
+  cached?: RemoteCacheEntry,
+): Record<string, string> | undefined {
+  const headers: Record<string, string> = {};
+  if (cached?.etag) {
+    headers["if-none-match"] = cached.etag;
+  }
+  if (cached?.lastModified) {
+    headers["if-modified-since"] = cached.lastModified;
+  }
+  return Object.keys(headers).length > 0 ? headers : undefined;
 }
 
 function createTimeout(
@@ -216,6 +372,42 @@ function formatFetchError(error: unknown): string {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+function isFileNotFoundError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
+}
+
+function isRemoteDiskCacheEntry(
+  value: unknown,
+  url: string,
+): value is RemoteDiskCacheEntry {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const entry = value as Partial<RemoteDiskCacheEntry>;
+  return (
+    entry.version === 1 &&
+    entry.url === url &&
+    typeof entry.expiresAt === "number" &&
+    Number.isFinite(entry.expiresAt) &&
+    typeof entry.value === "string" &&
+    isOptionalString(entry.etag) &&
+    isOptionalString(entry.lastModified)
+  );
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return typeof value === "string" || value === undefined;
+}
+
+function hashText(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 function delay(milliseconds: number): Promise<void> {
