@@ -4,10 +4,10 @@ import { logInfo } from "./logger";
 import { ResourceLoader } from "./loaders/resource-loader";
 import { ConfigBuilder } from "./services/config-builder";
 
-const config = parseCliArgs(Bun.argv.slice(2));
+const config = parseCliArgs(process.argv.slice(2));
 const loader = new ResourceLoader(config.cacheTtlSeconds);
 const builder = new ConfigBuilder(config, loader);
-const server = createServer(config, builder);
+createServer(config, builder);
 
 logInfo("Server started", {
   host: config.listenHost,

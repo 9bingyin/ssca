@@ -24,28 +24,40 @@ data/
 
 ## 启动
 
-使用默认目录 `data`：
+本地开发默认用 Bun：
 
 ```bash
-bun run src/index.ts
+bun run dev
+```
+
+Node.js 运行：
+
+```bash
+bun run start
 ```
 
 指定配置目录：
 
 ```bash
-bun run src/index.ts ./data
+bun run start -- ./data
 ```
 
 或：
 
 ```bash
-bun run src/index.ts --config-dir ./data
+bun run start -- --config-dir ./data
 ```
 
 指定监听地址和缓存时间：
 
 ```bash
-bun run src/index.ts ./data --listen 127.0.0.1:3000 --cache-ttl 300
+bun run start -- ./data --listen 127.0.0.1:3000 --cache-ttl 300
+```
+
+如果要直接使用 Node.js 工具链，也可以运行：
+
+```bash
+npx tsx src/index.ts ./data
 ```
 
 ## HTTP API
@@ -111,7 +123,7 @@ bun test
 运行 TypeScript 类型检查：
 
 ```bash
-bunx tsc --noEmit
+bun run typecheck
 ```
 
 校验生成的 sing-box 配置：

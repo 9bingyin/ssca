@@ -1,3 +1,10 @@
+import {
+  createServer as createHttpServer,
+  type IncomingHttpHeaders,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from "node:http";
 import { AppError } from "./errors";
 import { logError, logInfo } from "./logger";
 import type { AppConfig } from "./types";
@@ -19,53 +26,60 @@ const SING_BOX_UA_KEYWORDS = ["sing-box", "sfa", "sfi", "sfm"];
 export function createServer(
   appConfig: AppConfig,
   builder: ConfigBuilder,
-): Bun.Server<undefined> {
-  return Bun.serve({
-    hostname: appConfig.listenHost,
-    port: appConfig.listenPort,
-    async fetch(request) {
-      const startedAt = Date.now();
-      const url = new URL(request.url);
-
-      try {
-        if (request.method !== "GET") {
-          return textResponse("Method Not Allowed", 405);
-        }
-
-        if (url.pathname !== "/pull") {
-          return textResponse("Not Found", 404);
-        }
-
-        const target = resolveTarget(
-          url.searchParams.get("target") ?? "auto",
-          request.headers.get("user-agent"),
-        );
-        const body = await buildTargetBody(target, builder);
-        logInfo("Request served", {
-          path: url.pathname,
-          target,
-          durationMs: Date.now() - startedAt,
-        });
-
-        return new Response(body, {
-          status: 200,
-          headers: {
-            "content-type": getContentType(target),
-            "cache-control": "no-store",
-          },
-        });
-      } catch (error) {
-        const appError = normalizeError(error);
-        logError("Request failed", {
-          path: url.pathname,
-          statusCode: appError.statusCode,
-          error: appError.message,
-          durationMs: Date.now() - startedAt,
-        });
-        return textResponse(appError.message, appError.statusCode);
-      }
-    },
+): Server {
+  const server = createHttpServer((request, response) => {
+    void handleRequest(appConfig, builder, request, response);
   });
+
+  server.listen(appConfig.listenPort, appConfig.listenHost);
+  return server;
+}
+
+async function handleRequest(
+  appConfig: AppConfig,
+  builder: ConfigBuilder,
+  request: IncomingMessage,
+  response: ServerResponse,
+): Promise<void> {
+  const startedAt = Date.now();
+  const url = getRequestUrl(appConfig, request);
+
+  try {
+    if (request.method !== "GET") {
+      sendTextResponse(response, "Method Not Allowed", 405);
+      return;
+    }
+
+    if (url.pathname !== "/pull") {
+      sendTextResponse(response, "Not Found", 404);
+      return;
+    }
+
+    const target = resolveTarget(
+      url.searchParams.get("target") ?? "auto",
+      getHeader(request.headers, "user-agent"),
+    );
+    const body = await buildTargetBody(target, builder);
+    logInfo("Request served", {
+      path: url.pathname,
+      target,
+      durationMs: Date.now() - startedAt,
+    });
+
+    sendResponse(response, body, 200, {
+      "content-type": getContentType(target),
+      "cache-control": "no-store",
+    });
+  } catch (error) {
+    const appError = normalizeError(error);
+    logError("Request failed", {
+      path: url.pathname,
+      statusCode: appError.statusCode,
+      error: appError.message,
+      durationMs: Date.now() - startedAt,
+    });
+    sendTextResponse(response, appError.message, appError.statusCode);
+  }
 }
 
 export function resolveTarget(
@@ -105,6 +119,20 @@ export function resolveTarget(
   return "mihomo";
 }
 
+function getRequestUrl(appConfig: AppConfig, request: IncomingMessage): URL {
+  const host = getHeader(request.headers, "host");
+  const base = `http://${host ?? `${appConfig.listenHost}:${appConfig.listenPort}`}`;
+  return new URL(request.url ?? "/", base);
+}
+
+function getHeader(headers: IncomingHttpHeaders, name: string): string | null {
+  const value = headers[name];
+  if (!value) {
+    return null;
+  }
+  return Array.isArray(value) ? value[0] : value;
+}
+
 function buildTargetBody(
   target: "mihomo" | "base64" | "sing-box",
   builder: ConfigBuilder,
@@ -140,11 +168,22 @@ function normalizeError(error: unknown): AppError {
   return new AppError("Unknown error", 500);
 }
 
-function textResponse(message: string, status: number): Response {
-  return new Response(message, {
-    status,
-    headers: {
-      "content-type": "text/plain; charset=utf-8",
-    },
+function sendTextResponse(
+  response: ServerResponse,
+  message: string,
+  status: number,
+): void {
+  sendResponse(response, message, status, {
+    "content-type": "text/plain; charset=utf-8",
   });
+}
+
+function sendResponse(
+  response: ServerResponse,
+  body: string,
+  status: number,
+  headers: Record<string, string>,
+): void {
+  response.writeHead(status, headers);
+  response.end(body);
 }
