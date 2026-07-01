@@ -56,6 +56,18 @@ bun run start -- --config-dir ./data
 bun run start -- ./data --listen 127.0.0.1:3000 --cache-ttl 300
 ```
 
+自定义订阅路径：
+
+```bash
+bun run start -- ./data --path /UNjkVLTt/
+```
+
+此时订阅地址为：
+
+```text
+http://127.0.0.1:3000/UNjkVLTt/?target=auto
+```
+
 覆盖 `profile.ini` 来源，其他文件仍从配置目录读取：
 
 ```bash
@@ -76,10 +88,16 @@ npx tsx src/index.ts ./data
 
 ## HTTP API
 
-服务只提供一个接口：
+服务默认只提供一个接口：
 
 ```text
 GET /
+```
+
+如使用 `--path /UNjkVLTt/`，接口变为：
+
+```text
+GET /UNjkVLTt/
 ```
 
 ### 输出 Mihomo

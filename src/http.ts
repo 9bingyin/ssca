@@ -50,7 +50,7 @@ async function handleRequest(
       return;
     }
 
-    if (!isSubscriptionPath(url.pathname)) {
+    if (!isSubscriptionPath(url.pathname, appConfig.subscriptionPath)) {
       sendTextResponse(response, "Not Found", 404);
       return;
     }
@@ -119,8 +119,11 @@ export function resolveTarget(
   return "mihomo";
 }
 
-export function isSubscriptionPath(pathname: string): boolean {
-  return pathname === "/";
+export function isSubscriptionPath(
+  pathname: string,
+  subscriptionPath = "/",
+): boolean {
+  return pathname === subscriptionPath;
 }
 
 function getRequestUrl(appConfig: AppConfig, request: IncomingMessage): URL {

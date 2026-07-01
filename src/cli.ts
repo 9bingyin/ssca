@@ -6,6 +6,7 @@ const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_PORT = 3000;
 const DEFAULT_TTL_SECONDS = 300;
 const DEFAULT_CONFIG_DIR = "data";
+const DEFAULT_SUBSCRIPTION_PATH = "/";
 
 const CONFIG_FILE_NAMES = {
   proxies: "nodes.yaml",
@@ -23,11 +24,13 @@ export function parseCliArgs(argv: string[]): AppConfig {
   const configDir = path.resolve(options.configDir ?? DEFAULT_CONFIG_DIR);
   const profileIni =
     options.profileIni ?? path.join(configDir, CONFIG_FILE_NAMES.profile);
+  const subscriptionPath = parseSubscriptionPath(options.subscriptionPath);
 
   return {
     listenHost,
     listenPort,
     configDir,
+    subscriptionPath,
     proxiesFile: path.join(configDir, CONFIG_FILE_NAMES.proxies),
     profileIni,
     templateFile: path.join(configDir, CONFIG_FILE_NAMES.mihomoTemplate),
@@ -44,6 +47,7 @@ interface CliOptions {
   listen?: string;
   cacheTtl?: string;
   profileIni?: string;
+  subscriptionPath?: string;
 }
 
 function parseOptions(argv: string[]): CliOptions {
@@ -59,6 +63,8 @@ function parseOptions(argv: string[]): CliOptions {
       options.configDir = readOptionValue(argv, ++index, token);
     } else if (token === "--profile-ini") {
       options.profileIni = readOptionValue(argv, ++index, token);
+    } else if (token === "--path" || token === "--subscription-path") {
+      options.subscriptionPath = readOptionValue(argv, ++index, token);
     } else if (token.startsWith("--")) {
       throw new AppError(`Unknown argument: ${token}`, 500);
     } else if (!options.configDir) {
@@ -100,6 +106,14 @@ function parseCacheTtl(value: string | undefined): number {
     throw new AppError("Invalid --cache-ttl value", 500);
   }
   return cacheTtlSeconds;
+}
+
+function parseSubscriptionPath(value: string | undefined): string {
+  const pathValue = value ?? DEFAULT_SUBSCRIPTION_PATH;
+  if (!pathValue || pathValue.includes("?") || pathValue.includes("#")) {
+    throw new AppError("Invalid --path value", 500);
+  }
+  return pathValue.startsWith("/") ? pathValue : `/${pathValue}`;
 }
 
 function splitListen(listen: string): [string, string] {

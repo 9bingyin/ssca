@@ -2,6 +2,7 @@ export interface AppConfig {
   listenHost: string;
   listenPort: number;
   configDir: string;
+  subscriptionPath: string;
   proxiesFile: string;
   profileIni: string;
   templateFile: string;

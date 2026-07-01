@@ -8,6 +8,7 @@ describe("parseCliArgs", () => {
     const configDir = path.resolve("data");
 
     expect(config.configDir).toBe(configDir);
+    expect(config.subscriptionPath).toBe("/");
     expect(config.proxiesFile).toBe(path.join(configDir, "nodes.yaml"));
     expect(config.profileIni).toBe(path.join(configDir, "profile.ini"));
     expect(config.templateFile).toBe(path.join(configDir, "mihomo.yaml"));
@@ -34,6 +35,7 @@ describe("parseCliArgs", () => {
     expect(config.listenHost).toBe("127.0.0.1");
     expect(config.listenPort).toBe(8080);
     expect(config.cacheTtlSeconds).toBe(0);
+    expect(config.subscriptionPath).toBe("/");
   });
 
   test("accepts --config-dir and --profile-ini override", () => {
@@ -48,6 +50,17 @@ describe("parseCliArgs", () => {
 
     expect(config.configDir).toBe(path.resolve("data"));
     expect(config.profileIni).toBe(remoteProfile);
+  });
+
+  test("accepts custom subscription path", () => {
+    const config = parseCliArgs(["--path", "/UNjkVLTt/"]);
+    const shorthand = parseCliArgs(["--subscription-path", "abc"]);
+
+    expect(config.subscriptionPath).toBe("/UNjkVLTt/");
+    expect(shorthand.subscriptionPath).toBe("/abc");
+    expect(() => parseCliArgs(["--path", "/a?b"])).toThrow(
+      "Invalid --path value",
+    );
   });
 
   test("accepts file URL profile and rejects removed file arguments", () => {

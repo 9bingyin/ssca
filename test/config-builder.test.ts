@@ -64,6 +64,7 @@ rules: []
     const config: AppConfig = {
       listenHost: "127.0.0.1",
       listenPort: 3000,
+      subscriptionPath: "/",
       configDir: tempRoot,
       proxiesFile,
       profileIni: profileFile,
@@ -117,6 +118,7 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
     const config: AppConfig = {
       listenHost: "127.0.0.1",
       listenPort: 3000,
+      subscriptionPath: "/",
       configDir: tempRoot,
       proxiesFile,
       profileIni: profileFile,
@@ -196,6 +198,7 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
     const config: AppConfig = {
       listenHost: "127.0.0.1",
       listenPort: 3000,
+      subscriptionPath: "/",
       configDir: tempRoot,
       proxiesFile,
       profileIni: profileFile,
@@ -273,6 +276,7 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
     const config: AppConfig = {
       listenHost: "127.0.0.1",
       listenPort: 3000,
+      subscriptionPath: "/",
       configDir: tempRoot,
       proxiesFile,
       profileIni: profileFile,

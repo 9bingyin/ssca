@@ -13,5 +13,6 @@ logInfo("Server started", {
   host: config.listenHost,
   port: config.listenPort,
   configDir: config.configDir,
+  subscriptionPath: config.subscriptionPath,
   cacheTtlSeconds: config.cacheTtlSeconds,
 });

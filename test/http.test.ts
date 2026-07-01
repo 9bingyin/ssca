@@ -23,9 +23,11 @@ describe("resolveTarget", () => {
 });
 
 describe("isSubscriptionPath", () => {
-  test("uses root path as the subscription endpoint", () => {
+  test("uses configured path as the subscription endpoint", () => {
     expect(isSubscriptionPath("/")).toBe(true);
-    expect(isSubscriptionPath("/pull")).toBe(false);
-    expect(isSubscriptionPath("/health")).toBe(false);
+    expect(isSubscriptionPath("/UNjkVLTt/", "/UNjkVLTt/")).toBe(true);
+    expect(isSubscriptionPath("/", "/UNjkVLTt/")).toBe(false);
+    expect(isSubscriptionPath("/pull", "/UNjkVLTt/")).toBe(false);
+    expect(isSubscriptionPath("/health", "/UNjkVLTt/")).toBe(false);
   });
 });
