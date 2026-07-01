@@ -22,6 +22,7 @@ const MIHOMO_UA_KEYWORDS = [
 
 const BASE64_UA_KEYWORDS = ["v2rayn"];
 const SING_BOX_UA_KEYWORDS = ["sing-box", "sfa", "sfi", "sfm"];
+type OutputTarget = "mihomo" | "base64" | "sing-box";
 
 export function createServer(
   appConfig: AppConfig,
@@ -59,7 +60,13 @@ async function handleRequest(
       url.searchParams.get("target") ?? "auto",
       getHeader(request.headers, "user-agent"),
     );
-    const body = await buildTargetBody(target, builder);
+    const includeProxyGroupIcons = shouldIncludeProxyGroupIcons(
+      target,
+      url.searchParams,
+    );
+    const body = await buildTargetBody(target, builder, {
+      includeProxyGroupIcons,
+    });
     logInfo("Request served", {
       path: url.pathname,
       target,
@@ -119,6 +126,19 @@ export function resolveTarget(
   return "mihomo";
 }
 
+export function shouldIncludeProxyGroupIcons(
+  target: OutputTarget,
+  searchParams: URLSearchParams,
+): boolean {
+  if (target !== "mihomo") {
+    return false;
+  }
+
+  return isEnabledFlag(
+    searchParams.get("icons") ?? searchParams.get("icon") ?? "false",
+  );
+}
+
 export function isSubscriptionPath(
   pathname: string,
   subscriptionPath = "/",
@@ -141,8 +161,9 @@ function getHeader(headers: IncomingHttpHeaders, name: string): string | null {
 }
 
 function buildTargetBody(
-  target: "mihomo" | "base64" | "sing-box",
+  target: OutputTarget,
   builder: ConfigBuilder,
+  options: { includeProxyGroupIcons: boolean },
 ): Promise<string> {
   if (target === "base64") {
     return builder.buildBase64Subscription();
@@ -150,10 +171,12 @@ function buildTargetBody(
   if (target === "sing-box") {
     return builder.buildSingBoxConfig();
   }
-  return builder.build();
+  return builder.build({
+    includeProxyGroupIcons: options.includeProxyGroupIcons,
+  });
 }
 
-function getContentType(target: "mihomo" | "base64" | "sing-box"): string {
+function getContentType(target: OutputTarget): string {
   if (target === "base64") {
     return "text/plain; charset=utf-8";
   }
@@ -161,6 +184,10 @@ function getContentType(target: "mihomo" | "base64" | "sing-box"): string {
     return "application/json; charset=utf-8";
   }
   return "text/yaml; charset=utf-8";
+}
+
+function isEnabledFlag(value: string): boolean {
+  return ["1", "true", "yes", "on"].includes(value.toLowerCase());
 }
 
 function normalizeError(error: unknown): AppError {

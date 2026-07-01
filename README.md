@@ -126,6 +126,32 @@ curl 'http://127.0.0.1:3000/?target=auto'
 
 `auto` 会根据 `User-Agent` 判断目标格式；无法识别时默认输出 Mihomo。
 
+## 策略组图标
+
+可在 `profile.ini` 的 `[custom]` 中为策略组配置图标：
+
+```ini
+custom_proxy_group=代理规则`select`[]自动选择`[]DIRECT`.*
+custom_proxy_group_icon=代理规则,https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Proxy.png
+```
+
+默认 Mihomo 输出不包含 `icon`，避免影响 Mihomo 原版兼容性。给 Stash、Sparkle 等客户端使用时，在请求中加参数启用：
+
+```bash
+curl 'http://127.0.0.1:3000/?target=mihomo&icons=true'
+```
+
+启用后会生成：
+
+```yaml
+proxy-groups:
+  - name: 代理规则
+    type: select
+    icon: https://testingcf.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Proxy.png
+```
+
+sing-box 无等价字段，会忽略策略组图标。
+
 ## sing-box 转换说明
 
 sing-box 输出会使用 `sing-box.json` 作为模板，并覆盖/生成：

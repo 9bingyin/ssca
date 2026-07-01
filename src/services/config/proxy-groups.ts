@@ -15,6 +15,7 @@ export function compileProxyGroup(
   group: ProxyGroupDefinition,
   proxyNames: string[],
   groupNames: Set<string>,
+  includeIcon = false,
 ): Record<string, unknown> {
   const proxies = resolveGroupMembers(group, proxyNames, groupNames);
 
@@ -24,6 +25,9 @@ export function compileProxyGroup(
     proxies,
   };
 
+  if (includeIcon && group.icon) {
+    result.icon = group.icon;
+  }
   if (group.testUrl) {
     result.url = group.testUrl;
   }

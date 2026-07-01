@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { isSubscriptionPath, resolveTarget } from "../src/http";
+import {
+  isSubscriptionPath,
+  resolveTarget,
+  shouldIncludeProxyGroupIcons,
+} from "../src/http";
 
 describe("resolveTarget", () => {
   test("returns mihomo for auto target", () => {
@@ -19,6 +23,26 @@ describe("resolveTarget", () => {
 
   test("throws for invalid target", () => {
     expect(() => resolveTarget("surge", null)).toThrow("Invalid target");
+  });
+});
+
+describe("shouldIncludeProxyGroupIcons", () => {
+  test("enables icons only for mihomo requests", () => {
+    expect(
+      shouldIncludeProxyGroupIcons("mihomo", new URLSearchParams("icons=true")),
+    ).toBe(true);
+    expect(
+      shouldIncludeProxyGroupIcons("mihomo", new URLSearchParams("icon=1")),
+    ).toBe(true);
+    expect(
+      shouldIncludeProxyGroupIcons(
+        "sing-box",
+        new URLSearchParams("icons=true"),
+      ),
+    ).toBe(false);
+    expect(shouldIncludeProxyGroupIcons("mihomo", new URLSearchParams())).toBe(
+      false,
+    );
   });
 });
 

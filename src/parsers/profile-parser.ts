@@ -2,6 +2,7 @@ import { AppError } from "../errors";
 import type {
   ParsedProfile,
   ProxyGroupDefinition,
+  ProxyGroupIconDefinition,
   ProxyGroupType,
   RulesetDefinition,
 } from "../types";
@@ -16,6 +17,7 @@ const SUPPORTED_GROUP_TYPES = new Set<ProxyGroupType>([
 export function parseProfileIni(content: string): ParsedProfile {
   const rulesets: RulesetDefinition[] = [];
   const proxyGroups: ProxyGroupDefinition[] = [];
+  const proxyGroupIcons: ProxyGroupIconDefinition[] = [];
   let inCustomSection = false;
 
   for (const rawLine of content.split(/\r?\n/u)) {
@@ -38,6 +40,13 @@ export function parseProfileIni(content: string): ParsedProfile {
       continue;
     }
 
+    if (line.startsWith("custom_proxy_group_icon=")) {
+      proxyGroupIcons.push(
+        parseProxyGroupIcon(line.slice("custom_proxy_group_icon=".length)),
+      );
+      continue;
+    }
+
     if (line.startsWith("custom_proxy_group=")) {
       proxyGroups.push(
         parseProxyGroup(line.slice("custom_proxy_group=".length)),
@@ -49,7 +58,10 @@ export function parseProfileIni(content: string): ParsedProfile {
     throw new AppError("No ruleset found in [custom] section", 500);
   }
 
-  return { rulesets, proxyGroups };
+  return {
+    rulesets,
+    proxyGroups: applyProxyGroupIcons(proxyGroups, proxyGroupIcons),
+  };
 }
 
 function parseRuleset(value: string): RulesetDefinition {
@@ -69,6 +81,42 @@ function parseRuleset(value: string): RulesetDefinition {
     source,
     value: parts.slice(2).join(",").trim() || undefined,
   };
+}
+
+function parseProxyGroupIcon(value: string): ProxyGroupIconDefinition {
+  const separatorIndex = value.indexOf(",");
+  if (separatorIndex === -1) {
+    throw new AppError(
+      `Invalid custom_proxy_group_icon definition: ${value}`,
+      500,
+    );
+  }
+
+  const name = value.slice(0, separatorIndex).trim();
+  const url = value.slice(separatorIndex + 1).trim();
+  if (!name || !url) {
+    throw new AppError(
+      `Invalid custom_proxy_group_icon definition: ${value}`,
+      500,
+    );
+  }
+
+  return { name, url };
+}
+
+function applyProxyGroupIcons(
+  proxyGroups: ProxyGroupDefinition[],
+  icons: ProxyGroupIconDefinition[],
+): ProxyGroupDefinition[] {
+  if (icons.length === 0) {
+    return proxyGroups;
+  }
+
+  const iconByName = new Map(icons.map((icon) => [icon.name, icon.url]));
+  return proxyGroups.map((group) => ({
+    ...group,
+    icon: iconByName.get(group.name),
+  }));
 }
 
 function parseProxyGroup(value: string): ProxyGroupDefinition {

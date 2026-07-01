@@ -111,6 +111,7 @@ rules: []
 ruleset=默认规则,[]FINAL
 custom_proxy_group=代理规则\`select\`[]自动选择\`[]DIRECT\`.*
 custom_proxy_group=自动选择\`url-test\`.*\`https://cp.cloudflare.com/generate_204\`300,,50
+custom_proxy_group_icon=代理规则,https://example.com/proxy.png
 custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
 `,
     );
@@ -150,11 +151,22 @@ custom_proxy_group=默认规则\`select\`[]代理规则\`[]DIRECT
       "自动选择",
       "默认规则",
     ]);
+    expect(groups[0]?.icon).toBeUndefined();
     expect(rules.at(-1)).toBe("MATCH,默认规则");
 
     const serialized = JSON.stringify(parsed);
     expect(serialized).not.toContain('"name":"socks"');
     expect(serialized).not.toContain('"name":"relay"');
+
+    const iconOutput = await new ConfigBuilder(
+      config,
+      new ResourceLoader(300),
+    ).build({ includeProxyGroupIcons: true });
+    const parsedWithIcon = YAML.parse(iconOutput) as Record<string, unknown>;
+    const iconGroups = parsedWithIcon["proxy-groups"] as Array<
+      Record<string, unknown>
+    >;
+    expect(iconGroups[0]?.icon).toBe("https://example.com/proxy.png");
   });
 
   test("builds base64 subscription from proxies file", async () => {

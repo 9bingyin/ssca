@@ -35,6 +35,7 @@ export interface ProxyGroupDefinition {
   name: string;
   type: ProxyGroupType;
   rawMembers: string[];
+  icon?: string;
   testUrl?: string;
   intervalSeconds?: number;
   timeout?: number;
@@ -43,6 +44,11 @@ export interface ProxyGroupDefinition {
 
 export type ProxyGroupType =
   "select" | "url-test" | "fallback" | "load-balance";
+
+export interface ProxyGroupIconDefinition {
+  name: string;
+  url: string;
+}
 
 export interface CompiledConfig {
   proxies: Record<string, unknown>[];

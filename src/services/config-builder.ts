@@ -10,17 +10,21 @@ import { compileRules } from "./config/rules";
 import { normalizeProxyNames } from "./config/normalize-proxies";
 import type { AppConfig, CompiledConfig, ParsedProfile } from "../types";
 
+export interface BuildMihomoOptions {
+  includeProxyGroupIcons?: boolean;
+}
+
 export class ConfigBuilder {
   constructor(
     private readonly appConfig: AppConfig,
     private readonly loader: ResourceLoader,
   ) {}
 
-  async build(): Promise<string> {
+  async build(options: BuildMihomoOptions = {}): Promise<string> {
     const proxies = await this.loadProxies();
     const profile = await this.loadProfile();
     const template = await this.loadTemplate();
-    const compiled = await this.compileConfig(proxies, profile);
+    const compiled = await this.compileConfig(proxies, profile, options);
 
     if (
       typeof template !== "object" ||
@@ -110,6 +114,7 @@ export class ConfigBuilder {
   private async compileConfig(
     proxies: Record<string, unknown>[],
     profile: ParsedProfile,
+    options: BuildMihomoOptions = {},
   ): Promise<CompiledConfig> {
     const proxyNames = proxies
       .map((proxy) => {
@@ -121,7 +126,12 @@ export class ConfigBuilder {
     const groupNames = new Set(profile.proxyGroups.map((group) => group.name));
 
     const proxyGroups = profile.proxyGroups.map((group) =>
-      compileProxyGroup(group, proxyNames, groupNames),
+      compileProxyGroup(
+        group,
+        proxyNames,
+        groupNames,
+        Boolean(options.includeProxyGroupIcons),
+      ),
     );
 
     const rules = await compileRules(profile.rulesets, this.loader);

@@ -10,14 +10,18 @@ ruleset=默认规则,[]FINAL
 ruleset=直连规则,[]GEOIP,CN
 custom_proxy_group=代理规则\`select\`[]自动选择\`[]DIRECT\`.*
 custom_proxy_group=自动选择\`url-test\`.*\`http://detectportal.firefox.com/success.txt\`300,,50
+custom_proxy_group_icon=代理规则,https://example.com/proxy.png
+custom_proxy_group_icon=自动选择,https://example.com/auto.png
 `);
 
     expect(parsed.rulesets).toHaveLength(3);
     expect(parsed.proxyGroups).toHaveLength(2);
+    expect(parsed.proxyGroups[0]?.icon).toBe("https://example.com/proxy.png");
     expect(parsed.proxyGroups[1]).toEqual({
       name: "自动选择",
       type: "url-test",
       rawMembers: [".*"],
+      icon: "https://example.com/auto.png",
       testUrl: "http://detectportal.firefox.com/success.txt",
       intervalSeconds: 300,
       timeout: undefined,
