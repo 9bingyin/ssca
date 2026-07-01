@@ -50,7 +50,7 @@ async function handleRequest(
       return;
     }
 
-    if (url.pathname !== "/pull") {
+    if (!isSubscriptionPath(url.pathname)) {
       sendTextResponse(response, "Not Found", 404);
       return;
     }
@@ -117,6 +117,10 @@ export function resolveTarget(
   }
 
   return "mihomo";
+}
+
+export function isSubscriptionPath(pathname: string): boolean {
+  return pathname === "/";
 }
 
 function getRequestUrl(appConfig: AppConfig, request: IncomingMessage): URL {

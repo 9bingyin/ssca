@@ -79,31 +79,31 @@ npx tsx src/index.ts ./data
 服务只提供一个接口：
 
 ```text
-GET /pull
+GET /
 ```
 
 ### 输出 Mihomo
 
 ```bash
-curl 'http://127.0.0.1:3000/pull?target=mihomo'
+curl 'http://127.0.0.1:3000/?target=mihomo'
 ```
 
 ### 输出 v2rayN/base64
 
 ```bash
-curl 'http://127.0.0.1:3000/pull?target=base64'
+curl 'http://127.0.0.1:3000/?target=base64'
 ```
 
 ### 输出 sing-box
 
 ```bash
-curl 'http://127.0.0.1:3000/pull?target=sing-box'
+curl 'http://127.0.0.1:3000/?target=sing-box'
 ```
 
 ### 自动识别
 
 ```bash
-curl 'http://127.0.0.1:3000/pull?target=auto'
+curl 'http://127.0.0.1:3000/?target=auto'
 ```
 
 `auto` 会根据 `User-Agent` 判断目标格式；无法识别时默认输出 Mihomo。

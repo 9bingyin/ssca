@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveTarget } from "../src/http";
+import { isSubscriptionPath, resolveTarget } from "../src/http";
 
 describe("resolveTarget", () => {
   test("returns mihomo for auto target", () => {
@@ -19,5 +19,13 @@ describe("resolveTarget", () => {
 
   test("throws for invalid target", () => {
     expect(() => resolveTarget("surge", null)).toThrow("Invalid target");
+  });
+});
+
+describe("isSubscriptionPath", () => {
+  test("uses root path as the subscription endpoint", () => {
+    expect(isSubscriptionPath("/")).toBe(true);
+    expect(isSubscriptionPath("/pull")).toBe(false);
+    expect(isSubscriptionPath("/health")).toBe(false);
   });
 });
