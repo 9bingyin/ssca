@@ -23,6 +23,7 @@ const MIHOMO_UA_KEYWORDS = [
 const BASE64_UA_KEYWORDS = ["v2rayn"];
 const SING_BOX_UA_KEYWORDS = ["sing-box", "sfa", "sfi", "sfm"];
 type OutputTarget = "mihomo" | "base64" | "sing-box";
+const DEFAULT_AUTO_TARGET: OutputTarget = "base64";
 
 export function createServer(
   appConfig: AppConfig,
@@ -102,7 +103,7 @@ export function resolveTarget(
 
   const normalized = userAgent?.toLowerCase() ?? "";
   if (!normalized) {
-    return "mihomo";
+    return DEFAULT_AUTO_TARGET;
   }
 
   for (const keyword of BASE64_UA_KEYWORDS) {
@@ -123,7 +124,7 @@ export function resolveTarget(
     }
   }
 
-  return "mihomo";
+  return DEFAULT_AUTO_TARGET;
 }
 
 export function shouldIncludeProxyGroupIcons(

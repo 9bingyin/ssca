@@ -124,7 +124,7 @@ curl 'http://127.0.0.1:3000/?target=sing-box'
 curl 'http://127.0.0.1:3000/?target=auto'
 ```
 
-`auto` 会根据 `User-Agent` 判断目标格式；无法识别时默认输出 Mihomo。
+`auto` 会根据 `User-Agent` 判断目标格式；无法识别时默认输出 v2rayN/base64。
 
 ## 策略组图标
 

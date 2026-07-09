@@ -6,9 +6,13 @@ import {
 } from "../src/http";
 
 describe("resolveTarget", () => {
-  test("returns mihomo for auto target", () => {
+  test("returns mihomo for clash user agent", () => {
     expect(resolveTarget("auto", "ClashforWindows/0.20")).toBe("mihomo");
-    expect(resolveTarget("auto", null)).toBe("mihomo");
+  });
+
+  test("falls back to base64 for unknown clients", () => {
+    expect(resolveTarget("auto", null)).toBe("base64");
+    expect(resolveTarget("auto", "UnknownClient/1.0")).toBe("base64");
   });
 
   test("returns base64 for v2rayN user agent", () => {
